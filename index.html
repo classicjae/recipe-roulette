@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오늘의 요리 뽑기</title>
+<style>
+  :root {
+    --bg: #faf7f2; --card: #ffffff; --text: #2b2b2b; --muted: #777;
+    --accent: #e86a33; --line: #eee3d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1d1b19; --card: #2a2724; --text: #eee; --muted: #aaa; --accent: #ff8a50; --line: #3a3532; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    display: flex; justify-content: center; padding: 32px 16px;
+  }
+  main { width: 100%; max-width: 520px; text-align: center; }
+  h1 { font-size: 1.6rem; margin: 0 0 24px; }
+  button {
+    background: var(--accent); color: #fff; border: 0; border-radius: 12px;
+    font-size: 1.2rem; padding: 14px 40px; cursor: pointer; font-weight: bold;
+  }
+  button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  @media (max-width: 480px) { button { width: 100%; } .dish { font-size: 1.7rem; } }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.6; cursor: default; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px; margin-top: 24px; text-align: left;
+  }
+  .label { color: var(--muted); font-size: 0.9rem; margin-bottom: 6px; }
+  .dish { font-size: 2rem; font-weight: bold; text-align: center; padding: 8px 0; }
+  .emoji { font-size: 3rem; text-align: center; }
+  h2 { margin: 0 0 12px; font-size: 1.2rem; }
+  h3 { font-size: 1rem; margin: 16px 0 6px; }
+  ul, ol { margin: 0; padding-left: 22px; line-height: 1.7; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🍳 오늘의 요리 뽑기</h1>
+  <button id="start">시작</button>
+
+  <section id="pick" class="card hidden">
+    <div class="label">오늘 선택된 요리</div>
+    <div class="emoji" id="pickEmoji"></div>
+    <div class="dish" id="pickName"></div>
+  </section>
+
+  <section id="recipe" class="card hidden">
+    <div class="label">참고 레시피 (선택된 요리와 다른 음식이에요)</div>
+    <h2 id="recipeName"></h2>
+    <h3>재료</h3>
+    <ul id="ingredients"></ul>
+    <h3>만드는 법</h3>
+    <ol id="steps"></ol>
+  </section>
+</main>
+
+<script>
+const FOODS = [
+  { name: "김치찌개", emoji: "🍲",
+    ingredients: ["김치 1/4포기", "돼지고기 150g", "두부 1/2모", "대파 1대", "고춧가루 1큰술", "물 500ml"],
+    steps: ["돼지고기와 김치를 냄비에 넣고 볶는다.", "물을 붓고 끓인다.", "고춧가루를 넣고 10분간 끓인다.", "두부와 대파를 넣고 5분 더 끓인다."] },
+  { name: "된장찌개", emoji: "🥘",
+    ingredients: ["된장 2큰술", "애호박 1/3개", "감자 1개", "두부 1/2모", "양파 1/2개", "멸치육수 500ml"],
+    steps: ["멸치육수를 끓이고 된장을 푼다.", "감자를 먼저 넣고 5분 끓인다.", "애호박, 양파, 두부를 넣는다.", "채소가 익을 때까지 끓인다."] },
+  { name: "제육볶음", emoji: "🥓",
+    ingredients: ["돼지 앞다리살 300g", "양파 1/2개", "대파 1대", "고추장 2큰술", "고춧가루 1큰술", "간장·설탕 1큰술씩", "다진 마늘 1큰술"],
+    steps: ["양념 재료를 섞어 고기에 버무린다.", "20분 정도 재워 둔다.", "팬에 고기를 볶다가 양파를 넣는다.", "대파를 넣고 한 번 더 볶아 마무리한다."] },
+  { name: "계란말이", emoji: "🥚",
+    ingredients: ["달걀 4개", "당근 약간", "대파 약간", "소금 약간", "식용유"],
+    steps: ["달걀을 풀고 잘게 썬 채소와 소금을 넣는다.", "약불로 달군 팬에 기름을 두른다.", "달걀물을 얇게 붓고 반쯤 익으면 돌돌 만다.", "남은 달걀물을 부어가며 반복한 뒤 썬다."] },
+  { name: "떡볶이", emoji: "🌶️",
+    ingredients: ["떡볶이 떡 300g", "어묵 2장", "대파 1대", "고추장 2큰술", "설탕 1큰술", "고춧가루 1큰술", "물 400ml"],
+    steps: ["물에 고추장, 설탕, 고춧가루를 풀어 끓인다.", "떡을 넣고 중불에서 끓인다.", "어묵과 대파를 넣는다.", "국물이 걸쭉해질 때까지 졸인다."] },
+  { name: "카레라이스", emoji: "🍛",
+    ingredients: ["카레 가루 100g", "감자 2개", "당근 1/2개", "양파 1개", "돼지고기 200g", "물 700ml", "밥"],
+    steps: ["고기와 채소를 깍둑썰기한다.", "기름 두른 냄비에 고기와 양파를 볶는다.", "감자, 당근, 물을 넣고 15분 끓인다.", "불을 줄이고 카레 가루를 풀어 저어 준다.", "밥 위에 얹는다."] },
+  { name: "김치볶음밥", emoji: "🍚",
+    ingredients: ["밥 1공기", "김치 1컵", "스팸 또는 햄 약간", "달걀 1개", "참기름 약간", "버터 1조각"],
+    steps: ["버터를 녹이고 김치와 햄을 볶는다.", "밥을 넣고 고루 섞어 볶는다.", "참기름을 둘러 마무리한다.", "달걀프라이를 올린다."] },
+  { name: "토마토 파스타", emoji: "🍝",
+    ingredients: ["스파게티면 100g", "토마토소스 1컵", "마늘 3쪽", "양파 1/4개", "올리브유", "소금·후추"],
+    steps: ["소금물에 면을 8분간 삶는다.", "올리브유에 마늘과 양파를 볶는다.", "토마토소스를 넣고 끓인다.", "면을 넣어 버무리고 소금·후추로 간한다."] },
+  { name: "잡채", emoji: "🍜",
+    ingredients: ["당면 150g", "시금치 한 줌", "당근 1/3개", "양파 1/2개", "소고기 100g", "간장 3큰술", "설탕 1큰술", "참기름"],
+    steps: ["당면을 삶아 찬물에 헹군다.", "채소와 고기를 각각 볶는다.", "당면에 간장, 설탕을 넣고 볶는다.", "모든 재료를 섞고 참기름으로 마무리한다."] },
+  { name: "부대찌개", emoji: "🌭",
+    ingredients: ["햄·소시지 200g", "김치 1컵", "라면사리 1개", "베이크드빈 2큰술", "고추장 1큰술", "육수 600ml", "치즈 1장"],
+    steps: ["냄비에 햄, 소시지, 김치, 빈을 둘러 담는다.", "고추장을 올리고 육수를 붓는다.", "끓으면 라면사리를 넣는다.", "치즈를 올려 마무리한다."] },
+  { name: "닭갈비", emoji: "🍗",
+    ingredients: ["닭다리살 400g", "양배추 1/4통", "고구마 1개", "떡 한 줌", "고추장 3큰술", "간장·설탕 1큰술씩", "다진 마늘 1큰술"],
+    steps: ["닭고기를 양념에 30분 재운다.", "팬에 양배추, 고구마, 떡을 깐다.", "닭고기를 올리고 중불에서 볶는다.", "고구마가 익으면 완성."] },
+  { name: "미역국", emoji: "🥣",
+    ingredients: ["건미역 한 줌", "소고기 100g", "국간장 2큰술", "참기름 1큰술", "다진 마늘 1작은술", "물 1L"],
+    steps: ["미역을 물에 불려 먹기 좋게 자른다.", "참기름에 소고기를 볶는다.", "미역을 넣고 함께 볶는다.", "물을 붓고 20분 끓인 뒤 국간장으로 간한다."] },
+  { name: "불고기", emoji: "🥩",
+    ingredients: ["소고기 불고기용 300g", "양파 1/2개", "대파 1대", "간장 4큰술", "설탕 2큰술", "다진 마늘 1큰술", "참기름 1큰술", "배즙 3큰술"],
+    steps: ["간장, 설탕, 마늘, 배즙, 참기름으로 양념을 만든다.", "고기에 양념을 버무려 30분 재운다.", "팬에 고기와 양파를 넣고 볶는다.", "대파를 넣고 국물이 자작해지면 완성."] },
+  { name: "비빔밥", emoji: "🥗",
+    ingredients: ["밥 1공기", "콩나물 한 줌", "시금치 한 줌", "당근 1/4개", "애호박 1/4개", "달걀 1개", "고추장 1큰술", "참기름 1큰술"],
+    steps: ["콩나물과 시금치를 데쳐 소금, 참기름으로 무친다.", "당근과 애호박은 채 썰어 볶는다.", "달걀프라이를 만든다.", "밥 위에 나물과 달걀을 올리고 고추장, 참기름을 넣어 비빈다."] },
+  { name: "순두부찌개", emoji: "🍲",
+    ingredients: ["순두부 1봉", "바지락 한 줌", "돼지고기 50g", "달걀 1개", "고춧가루 1큰술", "다진 마늘 1작은술", "물 300ml"],
+    steps: ["기름에 고춧가루와 고기를 볶아 고추기름을 낸다.", "물과 바지락을 넣고 끓인다.", "순두부를 큼직하게 떠 넣는다.", "달걀을 깨 넣고 한소끔 끓인다."] },
+  { name: "오므라이스", emoji: "🍳",
+    ingredients: ["밥 1공기", "달걀 3개", "양파 1/4개", "햄 약간", "케첩 3큰술", "우유 1큰술", "버터 1조각"],
+    steps: ["양파와 햄을 볶다가 밥과 케첩을 넣어 볶는다.", "달걀에 우유를 넣고 잘 푼다.", "버터 두른 팬에 달걀을 붓고 반숙으로 익힌다.", "볶음밥을 달걀로 감싸고 케첩을 뿌린다."] },
+  { name: "감자전", emoji: "🥔",
+    ingredients: ["감자 3개", "부침가루 2큰술", "소금 약간", "식용유"],
+    steps: ["감자를 강판에 간다.", "체에 밭쳐 물기를 빼고 가라앉은 전분은 다시 섞는다.", "부침가루와 소금을 넣고 섞는다.", "기름 두른 팬에 얇게 펴서 노릇하게 굽는다."] },
+  { name: "칼국수", emoji: "🍜",
+    ingredients: ["칼국수면 200g", "바지락 200g", "애호박 1/3개", "감자 1개", "대파 1대", "국간장 1큰술", "멸치육수 1L"],
+    steps: ["멸치육수에 바지락을 넣고 끓인다.", "감자와 애호박을 넣는다.", "면을 털어 넣고 5분 끓인다.", "국간장으로 간하고 대파를 넣는다."] },
+  { name: "짜장면", emoji: "🍝",
+    ingredients: ["중화면 2인분", "춘장 3큰술", "돼지고기 150g", "양파 2개", "양배추 1/8통", "설탕 1큰술", "전분물 3큰술"],
+    steps: ["기름에 춘장을 2분간 볶아 덜어 둔다.", "고기와 양파, 양배추를 볶는다.", "볶은 춘장과 설탕, 물 한 컵을 넣고 끓인다.", "전분물로 농도를 맞추고 삶은 면에 얹는다."] },
+  { name: "해물파전", emoji: "🦐",
+    ingredients: ["쪽파 한 줌", "오징어 1/2마리", "새우 한 줌", "부침가루 1컵", "물 3/4컵", "달걀 1개", "식용유"],
+    steps: ["부침가루와 물을 섞어 반죽을 만든다.", "팬에 쪽파를 가지런히 깐다.", "해물을 올리고 반죽을 끼얹는다.", "달걀을 풀어 올리고 앞뒤로 바삭하게 굽는다."] },
+  { name: "크림 파스타", emoji: "🧀",
+    ingredients: ["스파게티면 100g", "생크림 200ml", "베이컨 3줄", "양송이 4개", "마늘 2쪽", "파마산 치즈 2큰술", "소금·후추"],
+    steps: ["면을 소금물에 7분 삶는다.", "마늘, 베이컨, 양송이를 볶는다.", "생크림을 붓고 약불에서 끓인다.", "면과 치즈를 넣어 버무리고 소금·후추로 간한다."] },
+  { name: "갈비찜", emoji: "🍖",
+    ingredients: ["소갈비 1kg", "무 1/4개", "당근 1개", "밤·대추 약간", "간장 6큰술", "설탕 3큰술", "다진 마늘 2큰술", "배즙 1/2컵"],
+    steps: ["갈비를 찬물에 담가 핏물을 뺀 뒤 한 번 데친다.", "간장, 설탕, 마늘, 배즙으로 양념을 만든다.", "갈비와 양념, 물을 넣고 40분 끓인다.", "무, 당근, 밤, 대추를 넣고 20분 더 졸인다."] }
+
+];
+
+const $ = id => document.getElementById(id);
+const randIndex = (except) => {
+  let i;
+  do { i = Math.floor(Math.random() * FOODS.length); } while (i === except);
+  return i;
+};
+
+$("start").addEventListener("click", () => {
+  const btn = $("start");
+  btn.disabled = true;
+  $("pick").classList.remove("hidden");
+  $("recipe").classList.add("hidden");
+
+  // 룰렛처럼 잠깐 돌아가는 효과
+  let ticks = 0;
+  const timer = setInterval(() => {
+    const f = FOODS[randIndex(-1)];
+    $("pickEmoji").textContent = f.emoji;
+    $("pickName").textContent = f.name;
+    if (++ticks >= 15) {
+      clearInterval(timer);
+      const pickIdx = randIndex(-1);
+      const recipeIdx = randIndex(pickIdx); // 선택된 요리와 다른 음식
+      show(FOODS[pickIdx], FOODS[recipeIdx]);
+      btn.disabled = false;
+      btn.textContent = "다시 뽑기";
+    }
+  }, 70);
+});
+
+function show(pick, other) {
+  $("pickEmoji").textContent = pick.emoji;
+  $("pickName").textContent = pick.name;
+  $("recipeName").textContent = other.emoji + " " + other.name + " 레시피";
+  $("ingredients").innerHTML = other.ingredients.map(x => `<li>${x}</li>`).join("");
+  $("steps").innerHTML = other.steps.map(x => `<li>${x}</li>`).join("");
+  $("recipe").classList.remove("hidden");
+}
+</script>
+</body>
+</html>
